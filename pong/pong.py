@@ -2,7 +2,6 @@ import sys
 import hashlib
 import sqlite3
 import os
-
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -18,15 +17,20 @@ from PyQt5.QtCore import Qt, QTimer, QRectF, QPoint, pyqtSignal
 from PyQt5.QtGui import QPainter, QColor, QFont, QKeyEvent, QPixmap
 
 
-class DatabaseManager:
-    """Управляет SQLite базой данных пользователей."""
+def main():
+    app = QApplication(sys.argv)
+    db_manager = DatabaseManager()
+    login_window = LoginWindow(db_manager)
+    login_window.show()
+    sys.exit(app.exec_())
 
+
+class DatabaseManager:
     def __init__(self, db_name='users.db'):
         self.db_name = db_name
         self.create_database()
 
     def create_database(self):
-        """Создает таблицу users, если она не существует."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute('''
@@ -41,7 +45,6 @@ class DatabaseManager:
         self.add_default_users()
 
     def add_default_users(self):
-        """Добавляет тестовых пользователей."""
         users = [
             ("admin", "admin123"),
             ("user", "user123"),
@@ -51,11 +54,9 @@ class DatabaseManager:
             self.add_user(username, password)
 
     def hash_password(self, password):
-        """Хеширует пароль с помощью SHA-256."""
         return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
     def add_user(self, username, password):
-        """Добавляет пользователя в базу."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         password_hash = self.hash_password(password)
@@ -71,7 +72,6 @@ class DatabaseManager:
             conn.close()
 
     def verify_user(self, username, password):
-        """Проверяет логин и пароль."""
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute('''
@@ -79,32 +79,31 @@ class DatabaseManager:
         ''', (username,))
         result = cursor.fetchone()
         conn.close()
-        if result:
-            stored_hash = result[0]
-            return self.hash_password(password) == stored_hash
-        return False
+        if not result:
+            return False
+        stored_hash = result[0]
+        return self.hash_password(password) == stored_hash
 
 
-TARGET_POS = {
-    "Label 1": (100, 100),
-    "Label 2": (200, 100),
-    "Label 3": (100, 200),
-    "Label 4": (200, 200)
-}
+class CaptchaConfig:
+    TARGET_POS = {
+        "Label 1": (100, 100),
+        "Label 2": (200, 100),
+        "Label 3": (100, 200),
+        "Label 4": (200, 200)
+    }
 
-CORRECT_ORDER = [
-    "Label 1",
-    "Label 2",
-    "Label 3",
-    "Label 4"
-]
+    CORRECT_ORDER = [
+        "Label 1",
+        "Label 2",
+        "Label 3",
+        "Label 4"
+    ]
 
-TOLERANCE = 15
+    TOLERANCE = 15
 
 
 class DraggableLabel(QLabel):
-    """Перемещаемая метка для капчи."""
-
     def __init__(self, image_path, text, parent=None):
         super().__init__(parent)
         self.setFixedSize(100, 100)
@@ -162,13 +161,12 @@ class DraggableLabel(QLabel):
 
 
 class CaptchaWindow(QWidget):
-    """Окно капчи с перетаскиванием элементов."""
-
     captcha_passed = pyqtSignal()
     captcha_failed = pyqtSignal()
 
     def __init__(self):
         super().__init__()
+        self.config = CaptchaConfig()
         self.setWindowTitle("Проверка безопасности")
         self.setGeometry(300, 300, 600, 400)
         self.setStyleSheet("background-color: #f0f0f0;")
@@ -219,8 +217,7 @@ class CaptchaWindow(QWidget):
         self.instruction.setStyleSheet("font-weight: bold;")
 
     def create_target_hints(self):
-        """Создает подсказки-рамки для целевых позиций."""
-        for name, (x, y) in TARGET_POS.items():
+        for name, (x, y) in self.config.TARGET_POS.items():
             hint = QLabel(self)
             hint.setFixedSize(100, 100)
             hint.move(x, y)
@@ -249,14 +246,13 @@ class CaptchaWindow(QWidget):
             order_label.lower()
 
     def check_all_positions(self):
-        """Проверяет, все ли метки близко к цели."""
         all_correct_position = True
 
         for name, label in self.labels.items():
-            target_x, target_y = TARGET_POS[name]
+            target_x, target_y = self.config.TARGET_POS[name]
             x, y = label.x(), label.y()
-            if (abs(x - target_x) <= TOLERANCE
-                    and abs(y - target_y) <= TOLERANCE):
+            if (abs(x - target_x) <= self.config.TOLERANCE
+                    and abs(y - target_y) <= self.config.TOLERANCE):
                 if not label.correct_position:
                     label.correct_position = True
                     label.setStyleSheet("""
@@ -290,15 +286,14 @@ class CaptchaWindow(QWidget):
             )
 
     def check_order(self):
-        """Проверяет порядок картинок по заданной последовательности."""
         correct_order = True
 
-        for i, correct_name in enumerate(CORRECT_ORDER):
-            target_x, target_y = TARGET_POS[correct_name]
+        for i, correct_name in enumerate(self.config.CORRECT_ORDER):
+            target_x, target_y = self.config.TARGET_POS[correct_name]
             for name, label in self.labels.items():
                 x, y = label.x(), label.y()
-                if (abs(x - target_x) <= TOLERANCE
-                        and abs(y - target_y) <= TOLERANCE):
+                if (abs(x - target_x) <= self.config.TOLERANCE
+                        and abs(y - target_y) <= self.config.TOLERANCE):
                     if name != correct_name:
                         correct_order = False
                         break
@@ -322,8 +317,6 @@ class CaptchaWindow(QWidget):
 
 
 class PingPongGame(QMainWindow):
-    """Основное окно игры Ping Pong."""
-
     def __init__(self, name1, name2):
         super().__init__()
         self.name1 = name1
@@ -401,12 +394,15 @@ class PingPongGame(QMainWindow):
         QMessageBox.information(
             self, 'Конец игры', f'Победил: {winner_name}'
         )
+        self.pause_button.setEnabled(False)
+        self.restart_button.setEnabled(True)
 
     def restart_game(self):
         self.score1 = 0
         self.score2 = 0
         self.updateDisplay()
         self.game_canvas.restart_game()
+        self.pause_button.setEnabled(True)
 
     def return_to_menu(self):
         self.names_window = NamesWindow()
@@ -415,8 +411,6 @@ class PingPongGame(QMainWindow):
 
 
 class PingPongCanvas(QWidget):
-    """Игровое поле Ping Pong."""
-
     score_updated = pyqtSignal(int, int)
     game_over = pyqtSignal(str)
 
@@ -440,6 +434,7 @@ class PingPongCanvas(QWidget):
         self.timer.start(16)
         self.paused = False
         self.keys_pressed = set()
+        self.game_active = True
 
     def initGame(self):
         self.player1_y = 150
@@ -450,8 +445,9 @@ class PingPongCanvas(QWidget):
         self.ball_dy = self.ball_speed_y
         self.player1_score = 0
         self.player2_score = 0
+        self.game_active = True
 
-    def paintEvent(self, event):
+    def paintEvent(self):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.fillRect(0, 0, self.width(), self.height(), QColor(0, 0, 0))
@@ -506,7 +502,7 @@ class PingPongCanvas(QWidget):
             self.keys_pressed.remove(key)
 
     def update_game(self):
-        if self.paused:
+        if self.paused or not self.game_active:
             return
 
         if Qt.Key_W in self.keys_pressed:
@@ -550,12 +546,14 @@ class PingPongCanvas(QWidget):
             self.score_updated.emit(self.player1_score, self.player2_score)
             self.reset_ball()
             if self.player2_score >= 5:
+                self.game_active = False
                 self.game_over.emit(self.name2)
         elif self.ball_x > self.width():
             self.player1_score += 1
             self.score_updated.emit(self.player1_score, self.player2_score)
             self.reset_ball()
             if self.player1_score >= 5:
+                self.game_active = False
                 self.game_over.emit(self.name1)
 
         self.update()
@@ -568,8 +566,9 @@ class PingPongCanvas(QWidget):
         self.ball_dy = self.ball_speed_y * (1 if self.ball_dy > 0 else -1)
 
     def toggle_pause(self):
-        self.paused = not self.paused
-        self.update()
+        if self.game_active:
+            self.paused = not self.paused
+            self.update()
 
     def restart_game(self):
         self.initGame()
@@ -580,15 +579,14 @@ class PingPongCanvas(QWidget):
 
 
 class NamesWindow(QMainWindow):
-    """Окно ввода имён игроков."""
-
-    def __init__(self):
+    def __init__(self, login_window=None):
         super().__init__()
+        self.login_window = login_window
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle('Ввод имен')
-        self.setFixedSize(400, 300)
+        self.setFixedSize(400, 350)
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         layout = QVBoxLayout()
@@ -620,12 +618,20 @@ class NamesWindow(QMainWindow):
         )
         self.start_game_button.clicked.connect(self.start_game)
 
+        self.logout_button = QPushButton('Выйти из аккаунта')
+        self.logout_button.setMinimumHeight(35)
+        self.logout_button.setStyleSheet(
+            "font-size: 12px; background-color: #FF5722; color: white;"
+        )
+        self.logout_button.clicked.connect(self.logout)
+
         layout.addWidget(title_label)
         layout.addWidget(name1_label)
         layout.addWidget(self.name1_input)
         layout.addWidget(name2_label)
         layout.addWidget(self.name2_input)
         layout.addWidget(self.start_game_button)
+        layout.addWidget(self.logout_button)
 
         central_widget.setLayout(layout)
         self.name1_input.setFocus()
@@ -642,10 +648,24 @@ class NamesWindow(QMainWindow):
         self.ping_pong_window.show()
         self.close()
 
+    def logout(self):
+        reply = QMessageBox.question(
+            self, 'Подтверждение выхода',
+            'Вы уверены, что хотите выйти из аккаунта?',
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            if self.login_window:
+                self.login_window.show()
+            else:
+                db_manager = DatabaseManager()
+                login_window = LoginWindow(db_manager)
+                login_window.show()
+            self.close()
+
 
 class LoginWindow(QMainWindow):
-    """Окно входа пользователя."""
-
     def __init__(self, db_manager):
         super().__init__()
         self.db_manager = db_manager
@@ -696,21 +716,22 @@ class LoginWindow(QMainWindow):
             QMessageBox.information(self, 'Успех', 'Вход выполнен!')
             self.failed_attempts = 0
             self.open_names_window()
+            return
+
+        self.failed_attempts += 1
+        if self.failed_attempts >= 3:
+            QMessageBox.warning(
+                self, 'Ошибка',
+                'Слишком много неудачных попыток! '
+                'Пройдите капчу.'
+            )
+            self.show_captcha()
         else:
-            self.failed_attempts += 1
-            if self.failed_attempts >= 3:
-                QMessageBox.warning(
-                    self, 'Ошибка',
-                    'Слишком много неудачных попыток! '
-                    'Пройдите проверку безопасности.'
-                )
-                self.show_captcha()
-            else:
-                QMessageBox.warning(
-                    self, 'Ошибка',
-                    f'Неверный логин или пароль! '
-                    f'Осталось попыток: {3 - self.failed_attempts}'
-                )
+            QMessageBox.warning(
+                self, 'Ошибка',
+                f'Неверный логин или пароль! '
+                f'Осталось попыток: {3 - self.failed_attempts}'
+            )
 
     def show_captcha(self):
         self.captcha_window = CaptchaWindow()
@@ -733,17 +754,9 @@ class LoginWindow(QMainWindow):
         QApplication.quit()
 
     def open_names_window(self):
-        self.names_window = NamesWindow()
+        self.names_window = NamesWindow(login_window=self)
         self.names_window.show()
         self.close()
-
-
-def main():
-    app = QApplication(sys.argv)
-    db_manager = DatabaseManager()
-    login_window = LoginWindow(db_manager)
-    login_window.show()
-    sys.exit(app.exec_())
 
 
 if __name__ == '__main__':
