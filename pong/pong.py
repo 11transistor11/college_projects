@@ -425,8 +425,8 @@ class PingPongCanvas(QWidget):
         self.paddle_height = 100
         self.ball_size = 15
         self.paddle_speed = 8
-        self.ball_speed_x = 3
-        self.ball_speed_y = 3
+        self.ball_speed_x = 6
+        self.ball_speed_y = 6
 
         self.initGame()
         self.timer = QTimer()
@@ -447,7 +447,7 @@ class PingPongCanvas(QWidget):
         self.player2_score = 0
         self.game_active = True
 
-    def paintEvent(self):
+    def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
         painter.fillRect(0, 0, self.width(), self.height(), QColor(0, 0, 0))
