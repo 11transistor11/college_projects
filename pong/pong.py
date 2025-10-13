@@ -618,7 +618,7 @@ class NamesWindow(QMainWindow):
         )
         self.start_game_button.clicked.connect(self.start_game)
 
-        self.logout_button = QPushButton('Выйти из аккаунта')
+        self.logout_button = QPushButton('Выйти')
         self.logout_button.setMinimumHeight(35)
         self.logout_button.setStyleSheet(
             "font-size: 12px; background-color: #FF5722; color: white;"
@@ -651,7 +651,7 @@ class NamesWindow(QMainWindow):
     def logout(self):
         reply = QMessageBox.question(
             self, 'Подтверждение выхода',
-            'Вы уверены, что хотите выйти из аккаунта?',
+            'Вы уверены, что хотите выйти?',
             QMessageBox.Yes | QMessageBox.No,
             QMessageBox.No
         )
