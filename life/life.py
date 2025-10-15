@@ -554,7 +554,7 @@ class GameWindow(QWidget):
         self.screen = pygame.display.set_mode(
             (GameOfLife.WIDTH, GameOfLife.HEIGHT)
         )
-        pygame.display.set_caption("Game of Life with Periodic Smiley")
+        pygame.display.set_caption("Game of Life")
         self.clock = pygame.time.Clock()
         self.game = GameOfLife()
         self.game.initialize_grid("random")
@@ -643,7 +643,7 @@ class GameWindow(QWidget):
                 status_lines.append("ПАУЗА")
             else:
                 if self.game.figure_spawned:
-                    status_lines.append("СМАЙЛИК ПОЯВИЛСЯ! 😊")
+                    status_lines.append("СМАЙЛИК ПОЯВИЛСЯ!")
                 elif self.game.figure_appearing:
                     elapsed = time.time() - self.game.figure_appear_start
                     progress = min(elapsed / self.game.figure_appear_duration,

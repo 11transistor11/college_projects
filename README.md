@@ -1,8 +1,8 @@
 Pong ✔️
 
-Life ⏸️
+Life ✔️
 
-Polish notation ❌
+Polish notation ⏸️
 
 Hangman ️️⏸️
 
