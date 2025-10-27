@@ -2,10 +2,10 @@ Pong ✔️
 
 Life ✔️
 
-Polish notation ⏸️
+Polish notation ?
 
-Hangman ️️⏸️
+Hangman ️️?
 
-Minesweeper ❌
+Minesweeper ?
 
-Tanks ❌
+Tanks ?
