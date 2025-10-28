@@ -3,33 +3,53 @@ import sys
 import hashlib
 import sqlite3
 from typing import List
-from matplotlib.backends.backend_qt5agg import (
-    FigureCanvasQTAgg as FigureCanvas
-)
-from matplotlib.figure import Figure
+
 import numpy as np
 import matplotlib
+from matplotlib.backends.backend_qt5agg import (
+    FigureCanvasQTAgg as FigureCanvas,
+)
+from matplotlib.figure import Figure
 import math
 
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QMainWindow, QVBoxLayout, QHBoxLayout,
-    QLabel, QLineEdit, QPushButton, QMessageBox, QTextEdit,
-    QGroupBox, QSplitter
+    QApplication,
+    QWidget,
+    QMainWindow,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QMessageBox,
+    QTextEdit,
+    QGroupBox,
+    QSplitter,
 )
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QPixmap
 
-matplotlib.use('Qt5Agg')
+matplotlib.use("Qt5Agg")
+
+
+def main():
+    app = QApplication(sys.argv)
+    db = DatabaseManager()
+    login = LoginWindow(db)
+    login.show()
+    sys.exit(app.exec_())
 
 
 class PolishNotation:
     def __init__(self):
         self.operators = {
-            '+': 1, '-': 1,
-            '*': 2, '/': 2,
-            '^': 3
+            "+": 1,
+            "-": 1,
+            "*": 2,
+            "/": 2,
+            "^": 3,
         }
-        self.functions = {'sin', 'cos', 'tan', 'log', 'exp'}
+        self.functions = {"sin", "cos", "tan", "log", "exp"}
         self.all_ops = set(self.operators.keys()) | self.functions
 
     def is_operator(self, token: str) -> bool:
@@ -39,7 +59,7 @@ class PolishNotation:
         return token in self.functions
 
     def is_variable(self, token: str) -> bool:
-        return token.lower() == 'x'
+        return token.lower() == "x"
 
     def is_number(self, token: str) -> bool:
         try:
@@ -49,13 +69,13 @@ class PolishNotation:
             return False
 
     def tokenize(self, expression: str) -> List[str]:
-        expression = expression.replace(' ', '')
-        pattern = r'''
+        expression = expression.replace(" ", "")
+        pattern = r"""
             \d*\.?\d+
             |sin|cos|tan|log|exp
             |[a-zA-Z_][a-zA-Z0-9_]*
             |[+\-*/^()]
-        '''
+        """
         tokens = re.findall(pattern, expression, re.VERBOSE | re.IGNORECASE)
         return [token for token in tokens if token]
 
@@ -66,11 +86,14 @@ class PolishNotation:
 
         processed = []
         for i, token in enumerate(tokens):
-            is_unary = (i == 0 or tokens[i-1] in '(['
-                        or tokens[i-1] in self.all_ops)
-            if token == '-' and is_unary:
-                processed.append('0')
-                processed.append('-')
+            is_unary = (
+                i == 0
+                or tokens[i - 1] in "(["
+                or tokens[i - 1] in self.all_ops
+            )
+            if token == "-" and is_unary:
+                processed.append("0")
+                processed.append("-")
             else:
                 processed.append(token)
         tokens = processed
@@ -81,20 +104,25 @@ class PolishNotation:
         for token in reversed(tokens):
             if self.is_number(token) or self.is_variable(token):
                 output.append(token)
-            elif token == ')':
+            elif token == ")":
                 stack.append(token)
-            elif token == '(':
-                while stack and stack[-1] != ')':
+            elif token == "(":
+                while stack and stack[-1] != ")":
                     output.append(stack.pop())
-                if stack and stack[-1] == ')':
+                if stack and stack[-1] == ")":
                     stack.pop()
             elif self.is_function(token):
                 stack.append(token)
             elif self.is_operator(token):
-                while (stack and stack[-1] not in '()'
-                       and stack[-1] not in self.functions
-                       and (self.operators.get(stack[-1], 0) >
-                            self.operators[token])):
+                while (
+                    stack
+                    and stack[-1] not in "()"
+                    and stack[-1] not in self.functions
+                    and (
+                        self.operators.get(stack[-1], 0)
+                        > self.operators[token]
+                    )
+                ):
                     output.append(stack.pop())
                 stack.append(token)
 
@@ -104,10 +132,9 @@ class PolishNotation:
         return list(reversed(output))
 
     def format_prefix(self, prefix_tokens: List[str]) -> str:
-        return ' '.join(prefix_tokens)
+        return " ".join(prefix_tokens)
 
-    def evaluate_prefix(self, prefix_tokens: List[str],
-                        x_value: float = 0) -> float:
+    def evaluate_prefix(self, prefix_tokens: List[str], x_value: float = 0) -> float:
         stack = []
         for token in reversed(prefix_tokens):
             if self.is_number(token):
@@ -120,17 +147,19 @@ class PolishNotation:
                     raise ValueError(msg)
                 arg = stack.pop()
                 try:
-                    if token == 'sin':
+                    if token == "sin":
                         res = math.sin(arg)
-                    elif token == 'cos':
+                    elif token == "cos":
                         res = math.cos(arg)
-                    elif token == 'tan':
+                    elif token == "tan":
                         res = math.tan(arg)
-                    elif token == 'log':
+                    elif token == "log":
                         if arg <= 0:
-                            raise ValueError("log от неположительного числа")
+                            raise ValueError(
+                                "log от неположительного числа"
+                            )
                         res = math.log(arg)
-                    elif token == 'exp':
+                    elif token == "exp":
                         res = math.exp(arg)
                     else:
                         raise ValueError(f"Неизвестная функция: {token}")
@@ -142,17 +171,17 @@ class PolishNotation:
                     raise ValueError("Недостаточно операндов для оператора")
                 a = stack.pop()
                 b = stack.pop()
-                if token == '+':
+                if token == "+":
                     result = a + b
-                elif token == '-':
+                elif token == "-":
                     result = a - b
-                elif token == '*':
+                elif token == "*":
                     result = a * b
-                elif token == '/':
+                elif token == "/":
                     if b == 0:
                         raise ValueError("Деление на ноль")
                     result = a / b
-                elif token == '^':
+                elif token == "^":
                     try:
                         result = a ** b
                     except OverflowError:
@@ -176,14 +205,25 @@ class FunctionGraph(FigureCanvas):
         self.setParent(parent)
         self.ax = self.fig.add_subplot(111)
 
-    def plot_function(self, prefix_tokens, expression_str,
-                      x_range=(-10, 10), num_points=400):
+    def plot_function(
+        self,
+        prefix_tokens,
+        expression_str,
+        x_range=(-10, 10),
+        num_points=400,
+    ):
         self.ax.clear()
 
         if not prefix_tokens:
-            self.ax.text(0.5, 0.5, 'Введите функцию и нажмите Enter',
-                         ha='center', va='center', fontsize=12)
-            self.ax.set_title('График функции')
+            self.ax.text(
+                0.5,
+                0.5,
+                "Введите функцию и нажмите Enter",
+                ha="center",
+                va="center",
+                fontsize=12,
+            )
+            self.ax.set_title("График функции")
             self.ax.grid(True, alpha=0.3)
             self.draw()
             return
@@ -204,21 +244,29 @@ class FunctionGraph(FigureCanvas):
             valid = ~np.isnan(y)
 
             if np.any(valid):
-                self.ax.plot(x[valid], y[valid], 'b-',
-                             linewidth=2, label='f(x)')
+                self.ax.plot(
+                    x[valid], y[valid], "b-", linewidth=2, label="f(x)"
+                )
 
-            self.ax.set_xlabel('x')
-            self.ax.set_ylabel('f(x)')
-            self.ax.set_title(f'График: f(x) = {expression_str}')
+            self.ax.set_xlabel("x")
+            self.ax.set_ylabel("f(x)")
+            self.ax.set_title(f"График: f(x) = {expression_str}")
             self.ax.grid(True, alpha=0.3)
             self.ax.legend()
             self.fig.tight_layout()
             self.draw()
 
         except Exception as e:
-            self.ax.text(0.5, 0.5, f'Ошибка:\n{str(e)}', ha='center',
-                         va='center', fontsize=10, color='red')
-            self.ax.set_title('Ошибка построения графика')
+            self.ax.text(
+                0.5,
+                0.5,
+                f"Ошибка:\n{str(e)}",
+                ha="center",
+                va="center",
+                fontsize=10,
+                color="red",
+            )
+            self.ax.set_title("Ошибка построения графика")
             self.draw()
 
 
@@ -230,13 +278,15 @@ class DatabaseManager:
     def create_database(self):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL
             )
-        """)
+        """
+        )
         conn.commit()
         conn.close()
         self.add_default_users()
@@ -256,7 +306,7 @@ class DatabaseManager:
         try:
             cursor.execute(
                 "INSERT INTO users (username, password_hash) VALUES (?, ?)",
-                (username, password_hash)
+                (username, password_hash),
             )
             conn.commit()
         except sqlite3.IntegrityError:
@@ -267,8 +317,9 @@ class DatabaseManager:
     def verify_user(self, username, password):
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
-        cursor.execute("SELECT password_hash FROM users WHERE username = ?",
-                       (username,))
+        cursor.execute(
+            "SELECT password_hash FROM users WHERE username = ?", (username,)
+        )
         result = cursor.fetchone()
         conn.close()
         if result:
@@ -281,7 +332,8 @@ class DraggableLabel(QLabel):
         super().__init__(parent)
         self.name = name
         self.setFixedSize(100, 100)
-        self.setStyleSheet("""
+        self.setStyleSheet(
+            """
             QLabel {
                 background-color: #4CAF50;
                 border-radius: 5px;
@@ -291,7 +343,8 @@ class DraggableLabel(QLabel):
                 background-color: #66BB6A;
                 border: 2px solid #388E3C;
             }
-        """)
+        """
+        )
         self.can_move = True
         self.correct_position = False
         pixmap = QPixmap(image_path)
@@ -348,13 +401,15 @@ class CaptchaWindow(QWidget):
         self.create_target_hints()
         self.check_button = QPushButton("Проверить", self)
         self.check_button.setGeometry(250, 350, 100, 40)
-        self.check_button.setStyleSheet("""
+        self.check_button.setStyleSheet(
+            """
             QPushButton {
                 background-color: #2196F3; color: white;
                 border-radius: 5px; font-weight: bold;
             }
             QPushButton:hover { background-color: #1976D2; }
-        """)
+        """
+        )
         self.check_button.clicked.connect(self.check_all_positions)
 
         instruction_text = (
@@ -378,8 +433,10 @@ class CaptchaWindow(QWidget):
             hint.lower()
 
         order_labels = [
-            ("1", 140, 140), ("2", 240, 140),
-            ("3", 140, 240), ("4", 240, 240)
+            ("1", 140, 140),
+            ("2", 240, 140),
+            ("3", 140, 240),
+            ("4", 240, 240),
         ]
         for text, x, y in order_labels:
             order_label = QLabel(text, self)
@@ -396,20 +453,25 @@ class CaptchaWindow(QWidget):
         all_correct = True
         for name, label in self.labels.items():
             tx, ty = self.TARGET_POS[name]
-            is_in_pos = (abs(label.x() - tx) <= self.TOLERANCE and
-                         abs(label.y() - ty) <= self.TOLERANCE)
+            is_in_pos = (
+                abs(label.x() - tx) <= self.TOLERANCE
+                and abs(label.y() - ty) <= self.TOLERANCE
+            )
             if is_in_pos:
                 if not label.correct_position:
                     label.correct_position = True
-                    label.setStyleSheet("""
+                    label.setStyleSheet(
+                        """
                         QLabel {
                             background-color: #2E7D32; border-radius: 5px;
                             border: 2px solid #1B5E20;
                         }
-                    """)
+                    """
+                    )
             else:
                 label.correct_position = False
-                label.setStyleSheet("""
+                label.setStyleSheet(
+                    """
                     QLabel {
                         background-color: #4CAF50; border-radius: 5px;
                         border: 2px solid #2E7D32;
@@ -418,14 +480,16 @@ class CaptchaWindow(QWidget):
                         background-color: #66BB6A;
                         border: 2px solid #388E3C;
                     }
-                """)
+                """
+                )
                 all_correct = False
 
         if all_correct:
             self.check_order()
         else:
-            QMessageBox.warning(self, "Ошибка",
-                                "❌ Не все метки на своих местах!")
+            QMessageBox.warning(
+                self, "Ошибка", "❌ Не все метки на своих местах!"
+            )
 
     def check_order(self):
         correct = True
@@ -433,8 +497,10 @@ class CaptchaWindow(QWidget):
             tx, ty = self.TARGET_POS[name]
             placed = None
             for n, lbl in self.labels.items():
-                is_in_pos = (abs(lbl.x() - tx) <= self.TOLERANCE and
-                             abs(lbl.y() - ty) <= self.TOLERANCE)
+                is_in_pos = (
+                    abs(lbl.x() - tx) <= self.TOLERANCE
+                    and abs(lbl.y() - ty) <= self.TOLERANCE
+                )
                 if is_in_pos:
                     placed = n
                     break
@@ -443,13 +509,15 @@ class CaptchaWindow(QWidget):
                 break
 
         if correct:
-            QMessageBox.information(self, "Успех",
-                                    "🎉 Капча пройдена успешно! 🎉")
+            QMessageBox.information(
+                self, "Успех", "🎉 Капча пройдена успешно! 🎉"
+            )
             self.captcha_passed.emit()
             self.close()
         else:
-            QMessageBox.critical(self, "Ошибка",
-                                 "❌ Картинки не в правильном порядке!")
+            QMessageBox.critical(
+                self, "Ошибка", "❌ Картинки не в правильном порядке!"
+            )
             self.captcha_failed.emit()
             self.close()
 
@@ -508,14 +576,18 @@ class LoginWindow(QMainWindow):
         else:
             self.failed_attempts += 1
             if self.failed_attempts >= 3:
-                msg = ("Слишком много неудачных попыток! "
-                       "Пройдите проверку безопасности.")
+                msg = (
+                    "Слишком много неудачных попыток! "
+                    "Пройдите проверку безопасности."
+                )
                 QMessageBox.warning(self, "Ошибка", msg)
                 self.show_captcha()
             else:
                 attempts_left = 3 - self.failed_attempts
-                msg = (f"Неверный логин или пароль! "
-                       f"Осталось попыток: {attempts_left}")
+                msg = (
+                    f"Неверный логин или пароль! "
+                    f"Осталось попыток: {attempts_left}"
+                )
                 QMessageBox.warning(self, "Ошибка", msg)
 
     def show_captcha(self):
@@ -559,8 +631,10 @@ class PolishNotationCalculator(QMainWindow):
         input_layout.setContentsMargins(0, 0, 0, 0)
 
         self.expression_input = QLineEdit()
-        placeholder = ("Введите функцию, например: "
-                       "sin(x^2) и нажмите Enter")
+        placeholder = (
+            "Введите функцию, например: "
+            "sin(x^2) и нажмите Enter"
+        )
         self.expression_input.setPlaceholderText(placeholder)
         self.expression_input.setMinimumHeight(40)
         self.expression_input.returnPressed.connect(self.process_expression)
@@ -599,8 +673,7 @@ class PolishNotationCalculator(QMainWindow):
             prefix_tokens = self.pn.infix_to_prefix(expr)
             prefix_str = self.pn.format_prefix(prefix_tokens)
             self.prefix_output.setText(prefix_str)
-            self.graph.plot_function(prefix_tokens, expr,
-                                     x_range=(-10, 10))
+            self.graph.plot_function(prefix_tokens, expr, x_range=(-10, 10))
         except Exception as e:
             msg = f"Не удалось обработать выражение:\n{str(e)}"
             QMessageBox.critical(self, "Ошибка", msg)
@@ -611,14 +684,6 @@ class PolishNotationCalculator(QMainWindow):
         self.expression_input.clear()
         self.prefix_output.clear()
         self.graph.plot_function([], "")
-
-
-def main():
-    app = QApplication(sys.argv)
-    db = DatabaseManager()
-    login = LoginWindow(db)
-    login.show()
-    sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
